@@ -1,32 +1,35 @@
 import streamlit as st
 import speech_recognition as sr
 import spacy
-import matplotlib.pyplot as plt
+import pandas as pd
+import plotly.express as px
+import random
+import time
 
-# Load spaCy model
-nlp = spacy.load('en_core_web_sm')
+# Load NLP model
+nlp = spacy.load("en_core_web_sm")
 
-st.set_page_config(page_title="Stroke Assistant", layout="centered")
-st.title("🧠 Stroke Recovery Assistant")
-st.write("This assistant will help clinicians capture symptoms, generate SOAP notes, and visualize a recovery path.")
+# Streamlit setup
+st.set_page_config(page_title="NeuroHealthFocus Assistant", layout="centered")
+st.title("🧠 NeuroHealthFocus: Stroke Assistant + ER Dashboard")
 
-# --- Function to transcribe audio ---
+# --- AUDIO TRANSCRIPTION ---
+st.header("🎙️ 1. Voice Symptom Capture")
+
 def transcribe_audio():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
-        st.write("🎤 Listening for symptoms (please speak clearly)...")
+        st.write("Listening... Please describe symptoms clearly.")
         recognizer.adjust_for_ambient_noise(source)
         audio = recognizer.listen(source)
-        st.write("🔄 Transcribing...")
+        st.write("Transcribing...")
         try:
-            transcription = recognizer.recognize_google(audio)
-            return transcription
+            return recognizer.recognize_google(audio)
         except sr.UnknownValueError:
-            return "Sorry, could not understand the audio."
+            return "Sorry, could not understand audio."
         except sr.RequestError:
-            return "Speech recognition service is unavailable."
+            return "Speech recognition error."
 
-# --- Function to extract SOAP notes ---
 def generate_soap_notes(text):
     doc = nlp(text)
     subjective = [ent.text for ent in doc.ents if ent.label_ == 'SYMPTOM']
@@ -35,61 +38,92 @@ def generate_soap_notes(text):
     plan = [ent.text for ent in doc.ents if ent.label_ == 'TREATMENT']
     return subjective, objective, assessment, plan
 
-# --- Function to recommend recovery plan ---
 def generate_recovery_plan(subjective):
-    recovery_plan = ""
+    plan = ""
     if "fatigue" in subjective:
-        recovery_plan += "🛌 Rest and light physical therapy. "
+        plan += "- Rest and gradual physical therapy.\n"
     if "speech difficulty" in subjective:
-        recovery_plan += "🗣️ Prioritize speech therapy. "
+        plan += "- Initiate speech therapy.\n"
     if "weakness" in subjective:
-        recovery_plan += "🏋️ Focus on strength training in physical therapy. "
-    if recovery_plan == "":
-        recovery_plan = "⚠️ No specific recovery suggestion based on symptoms."
-    return recovery_plan
+        plan += "- Strength-based physical therapy.\n"
+    return plan if plan else "Standard recovery and monitoring."
 
-# --- UI: Audio Transcription ---
-if st.button("🎙️ Start Recording"):
+if st.button("🎤 Start Recording"):
     transcription = transcribe_audio()
-    st.write("📝 **Transcribed Text:**", transcription)
+    st.write("**Transcribed:**", transcription)
 
-    # Generate and display SOAP
-    subj, obj, assess, plan = generate_soap_notes(transcription)
+    subjective, objective, assessment, plan_items = generate_soap_notes(transcription)
 
-    st.subheader("🧾 SOAP Notes")
-    st.write("**Subjective:**", ", ".join(subj) if subj else "Not detected")
-    st.write("**Objective:**", ", ".join(obj) if obj else "Not detected")
-    st.write("**Assessment:**", ", ".join(assess) if assess else "Not detected")
-    st.write("**Plan:**", ", ".join(plan) if plan else "Not detected")
+    st.subheader("📄 SOAP Notes")
+    st.write("**Subjective:**", ", ".join(subjective))
+    st.write("**Objective:**", ", ".join(objective))
+    st.write("**Assessment:**", ", ".join(assessment))
+    st.write("**Plan:**", ", ".join(plan_items))
 
-    # --- Recovery Plan ---
-    st.subheader("🧩 Personalized Recovery Plan")
-    recovery = generate_recovery_plan(subj)
-    st.success(recovery)
+    st.subheader("🛠️ Recovery Plan")
+    st.code(generate_recovery_plan(subjective))
 
-    # --- Patient Metadata ---
-    st.subheader("📥 Patient Metadata")
-    age = st.number_input("Patient Age", min_value=18, max_value=100, value=65)
-    onset_days = st.number_input("Days Since Stroke Onset", min_value=0, max_value=365, value=3)
-    gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+# --- TRIAGE FORM ---
+st.markdown("---")
+st.header("🧾 2. Stroke Triage Form")
 
-    # --- Real-Time Recovery Dashboard ---
-    st.subheader("📊 Recovery Dashboard")
+age = st.slider("Age", 18, 100, 65)
+severity = st.selectbox("Stroke Severity", ["Mild", "Moderate", "Severe"])
+onset = st.slider("Onset Time (hours ago)", 0, 48, 4)
+symptoms = st.multiselect("Select Symptoms", ["Speech difficulty", "Paralysis", "Confusion", "Vision loss", "Headache"])
 
-    # Simulate a score
-    recovery_score = max(0, 100 - (onset_days * 0.7 + age * 0.3))
-    st.metric(label="🧠 Estimated Recovery Index", value=f"{recovery_score:.1f}")
+def get_triage(age, severity, onset, symptoms):
+    if severity == "Severe" or onset <= 3:
+        return "🚨 Urgent"
+    elif severity == "Moderate" or onset <= 12:
+        return "⚠️ Semi-Urgent"
+    return "⏳ Routine"
 
-    # Simple projected recovery chart
-    days = list(range(0, 91, 10))
-    recovery_curve = [min(100, recovery_score + (d * 0.5)) for d in days]
+if st.button("📊 Submit Triage"):
+    result = get_triage(age, severity, onset, symptoms)
+    st.success(f"Triage Level: {result}")
 
-    fig, ax = plt.subplots()
-    ax.plot(days, recovery_curve, marker='o', color='green')
-    ax.set_title("Projected Recovery Curve (Next 90 Days)")
-    ax.set_xlabel("Days Post-Onset")
-    ax.set_ylabel("Estimated Recovery Index")
-    ax.grid(True)
-    st.pyplot(fig)
+# --- FHIR-SIMULATED PATIENT DATA ---
+st.markdown("---")
+st.header("📈 3. Real-Time FHIR Dashboard")
 
-    st.info("🔒 This output is for clinical assistance only. Not a substitute for medical advice.")
+# Auto-refresh every 10 seconds
+count = st.experimental_get_query_params().get("refresh", [0])[0]
+count = int(count)
+st.experimental_set_query_params(refresh=str(count + 1))
+time.sleep(10)
+st.rerun()
+
+# Simulated patient data (would be pulled from FHIR/EMR API in production)
+def get_fhir_patient_data():
+    triage_levels = ["Urgent", "Semi-Urgent", "Routine"]
+    return pd.DataFrame({
+        "Patient ID": [f"PT-{i:03}" for i in range(1, 21)],
+        "Triage Level": random.choices(triage_levels, weights=[4, 6, 10], k=20),
+        "Bed Assigned": random.choices(["Yes", "No"], weights=[15, 5], k=20)
+    })
+
+df = get_fhir_patient_data()
+
+# Dashboard Charts
+st.subheader("🌀 Triage Distribution")
+fig = px.pie(df, names="Triage Level", title="Triage Case Load")
+st.plotly_chart(fig)
+
+# Bed Availability
+total_beds = 25
+occupied_beds = df["Bed Assigned"].value_counts().get("Yes", 0)
+free_beds = total_beds - occupied_beds
+
+st.subheader("🛏️ Bed Availability")
+st.progress(free_beds / total_beds)
+st.write(f"🟢 {free_beds} out of {total_beds} beds available")
+
+if free_beds < 5:
+    st.error("⚠️ ALERT: Low bed availability. Notify ER staff immediately!")
+
+st.subheader("📋 Current Patients (FHIR-Fetched)")
+st.dataframe(df)
+
+st.markdown("---")
+st.info("Prototype | Simulated FHIR API | Not for Clinical Use")
