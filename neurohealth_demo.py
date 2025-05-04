@@ -11,39 +11,39 @@ st.set_page_config(page_title="Stroke Recovery Assistant", layout="wide")
 
 # --- Function: Generate SOAP notes from patient data ---
 def generate_soap_notes(symptoms, name, age):
-    subjective = ", ".join(symptoms)
-    objective = ""
-    assessment = ""
-    plan = ""
+    # Subjective section
+    subjective = f"I met with {name}, a {age}-year-old patient who came here today feeling {', '.join(symptoms)}. He was unable to {', '.join(symptoms)}."
 
-    # Determine severity based on age and symptoms
-    if age > 65:
-        severity = "High risk due to age, immediate medical attention is recommended."
-    else:
-        severity = "Moderate risk, but manageable with timely intervention."
+    # Objective section (vital signs can be added here if needed, for now it's just a placeholder)
+    objective = "Vital signs were not recorded in this demo, but typically, we would include blood pressure, heart rate, and other relevant measures."
+
+    # Assessment section (AI-based analysis based on symptoms)
+    assessment = "Based on the symptoms provided, AI suggests that the patient may be experiencing post-stroke aphasia, motor impairment, or cognitive dysfunction. Further medical examination is needed."
+
+    # Plan section (recommendations based on symptoms)
+    plan = ""
 
     # Assigning treatment plans based on symptoms
     if "Speech impairment" in symptoms:
-        objective += "Speech difficulty observed."
-        assessment += "Post-stroke aphasia suspected."
-        plan += "Recommend speech therapy and communication aids."
+        plan += "Recommend speech therapy and communication aids.\n"
 
     if "Paralysis" in symptoms or "Weakness" in symptoms:
-        objective += "Weakness or paralysis observed."
-        assessment += "Post-stroke motor impairment."
-        plan += "Recommend physical therapy, mobility exercises, and strength training."
+        plan += "Recommend physical therapy, mobility exercises, and strength training.\n"
 
     if "Fatigue" in symptoms:
-        objective += "Fatigue reported."
-        assessment += "Post-stroke fatigue."
-        plan += "Encourage rest, gradual physical activity, and cognitive rest."
+        plan += "Encourage rest, gradual physical activity, and cognitive rest.\n"
 
     if "Memory loss" in symptoms or "Cognitive issues" in symptoms:
-        objective += "Cognitive impairment observed."
-        assessment += "Cognitive dysfunction due to stroke."
-        plan += "Recommend cognitive rehabilitation, memory exercises, and psychological support."
+        plan += "Recommend cognitive rehabilitation, memory exercises, and psychological support.\n"
 
-    return subjective, objective, assessment, plan, severity
+    # Additional plan if multiple symptoms are present
+    if "Speech impairment" in symptoms and "Paralysis" in symptoms:
+        plan += "Consider multidisciplinary therapy, combining speech therapy and physical therapy.\n"
+
+    if not plan:
+        plan = "No specific therapy recommended based on selected symptoms."
+
+    return subjective, objective, assessment, plan
 
 
 # --- Function: Generate recovery plan based on selected symptoms ---
@@ -132,18 +132,15 @@ if submitted:
     })
 
     # Generate SOAP notes and recovery plan
-    subj, obj, assess, plan, severity = generate_soap_notes(selected_symptoms, name, age)
+    subj, obj, assess, plan = generate_soap_notes(selected_symptoms, name, age)
     st.subheader("📋 SOAP Notes")
     st.write("**Subjective:**", subj)
-    st.write("**Objective:**", obj or "None")
-    st.write("**Assessment:**", assess or "None")
-    st.write("**Plan:**", plan or "None")
+    st.write("**Objective:**", obj)
+    st.write("**Assessment:**", assess)
+    st.write("**Plan:**", plan)
 
     st.subheader("📌 Initial Therapy Recommendation")
     st.success(generate_recovery_plan(selected_symptoms))
-
-    st.subheader("⚠️ Severity Evaluation")
-    st.write(severity)
 
 # Final section: Bedflow Dashboard
 if st.button("📊 View Real-Time Bedflow"):
