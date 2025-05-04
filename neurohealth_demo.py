@@ -9,39 +9,44 @@ nlp = spacy.load('en_core_web_sm')
 
 st.set_page_config(page_title="Stroke Recovery Assistant", layout="wide")
 
-# --- Function: Generate SOAP notes from patient data ---
+
+# --- Function: Generate SOAP notes ---
 def generate_soap_notes(symptoms, name, age):
     # Subjective section
-    subjective = f"I met with {name}, a {age}-year-old patient who came here today feeling {', '.join(symptoms)}."
+    subjective = f"I met with {name}, a {age}-year-old patient who came here today feeling {', '.join(symptoms)}. The patient reported difficulty with {', '.join(symptoms)}."
 
     # Objective section (vital signs can be added here if needed, for now it's just a placeholder)
     objective = "Vital signs were not recorded in this demo, but typically, we would include blood pressure, heart rate, and other relevant measures."
 
-    # Assessment section (AI-based analysis based on symptoms)
-    assessment = "Based on the symptoms provided, AI suggests that the patient may be experiencing post-stroke aphasia, motor impairment, or cognitive dysfunction. Further medical examination is needed."
+    # Assessment section (clinical assessment based on symptoms)
+    assessment = "The patient's symptoms suggest the possibility of post-stroke aphasia, motor impairment, or cognitive dysfunction. Further medical examination is needed to confirm the diagnosis."
 
-    # Plan section (recommendations based on symptoms)
-    plan = ""
+    # Recommended Tests/Exams
+    assessment += "\nRecommended Tests and Examinations:\n"
 
-    # Assigning treatment plans based on symptoms
+    # Tests based on symptoms
     if "Speech impairment" in symptoms:
-        plan += "Recommend speech therapy and communication aids.\n"
+        assessment += "- Conduct a speech and language assessment by a speech-language pathologist (SLP) to evaluate the extent of aphasia.\n"
 
     if "Paralysis" in symptoms or "Weakness" in symptoms:
-        plan += "Recommend physical therapy, mobility exercises, and strength training.\n"
+        assessment += "- Perform a neurological examination to assess motor function and muscle strength.\n"
+        assessment += "- Order an MRI or CT scan of the brain to assess any structural damage that could explain the paralysis or weakness.\n"
+        assessment += "- Conduct a physical therapy assessment to evaluate the patient's mobility and functional independence.\n"
 
     if "Fatigue" in symptoms:
-        plan += "Encourage rest, gradual physical activity, and cognitive rest.\n"
+        assessment += "- Assess for any underlying medical conditions that may contribute to fatigue, such as anemia or cardiovascular issues.\n"
+        assessment += "- Consider conducting blood tests, such as a complete blood count (CBC), to rule out possible causes of fatigue.\n"
 
     if "Memory loss" in symptoms or "Cognitive issues" in symptoms:
-        plan += "Recommend cognitive rehabilitation, memory exercises, and psychological support.\n"
+        assessment += "- Conduct neuropsychological testing to assess cognitive function, including memory, attention, and executive function.\n"
+        assessment += "- Perform brain imaging (e.g., MRI, fMRI) to assess for any structural or functional changes in the brain that could impact cognition.\n"
 
     # Additional plan if multiple symptoms are present
     if "Speech impairment" in symptoms and "Paralysis" in symptoms:
-        plan += "Consider multidisciplinary therapy, combining speech therapy and physical therapy.\n"
+        assessment += "- Consider a multidisciplinary evaluation involving speech therapy and physical therapy to address both speech and motor impairments.\n"
 
-    if not plan:
-        plan = "No specific therapy recommended based on selected symptoms."
+    # Plan section (Further treatment plan)
+    plan = "The patient is advised to follow up with speech therapy, physical therapy, and neuropsychological testing as recommended. Further assessments should be performed to confirm the diagnosis."
 
     return subjective, objective, assessment, plan
 
@@ -81,6 +86,30 @@ def generate_recovery_plan(symptoms_list):
         response += "No specific therapy found based on selected symptoms."
 
     return response
+
+
+# --- Function: Real-Time Bedflow Dashboard ---
+def bedflow_dashboard():
+    st.subheader("🏥 Real-Time Bedflow Dashboard")
+    st.caption("Auto-refreshes every few seconds. Alerts trigger when availability is low.")
+
+    num_beds = 25
+    available_beds = random.randint(0, num_beds)
+
+    st.metric("Total Beds", num_beds)
+    st.metric("Available Beds", available_beds)
+
+    if available_beds < 5:
+        st.error("⚠️ Alert: Low bed availability!")
+    else:
+        st.success("✅ Bed availability is safe.")
+
+    time.sleep(10)
+    st.rerun()
+
+
+# --- Main UI ---
+st.title("🧠 Stroke Recovery Assistant")
 
 
 # --- Function: Real-Time Bedflow Dashboard ---
