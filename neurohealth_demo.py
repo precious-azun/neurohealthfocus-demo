@@ -1,8 +1,6 @@
 import streamlit as st
 import speech_recognition as sr
 import spacy
-from pydub import AudioSegment
-from io import BytesIO
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
 import wave
 
@@ -13,13 +11,11 @@ nlp = spacy.load('en_core_web_sm')  # Load English model for NLP tasks
 def transcribe_audio(file_path):
     recognizer = sr.Recognizer()
     audio = None
-    # Open the audio file to recognize speech
     with sr.AudioFile(file_path) as source:
         recognizer.adjust_for_ambient_noise(source)  # Adjust for background noise
         audio_data = recognizer.record(source)  # Capture the entire audio file
 
     try:
-        # Use Google API for transcribing the speech to text
         transcription = recognizer.recognize_google(audio_data)
         return transcription
     except sr.UnknownValueError:
@@ -43,7 +39,6 @@ def process_transcription_for_soap(text):
         elif ent.label_ == 'TREATMENT':
             plan.append(ent.text)
 
-    # You can expand this with more complex rules or machine learning models
     return subjective, objective, assessment, plan
 
 # Function to generate a personalized recovery plan based on SOAP notes
@@ -59,8 +54,7 @@ def generate_recovery_plan(subjective):
 
 # Streamlit app UI setup
 st.title("Stroke Recovery Assistant")
-st.write(
-    "Record a conversation between the patient and clinician to get the transcription and recovery plan.")
+st.write("Record a conversation between the patient and clinician to get the transcription and recovery plan.")
 
 # Add Audio Recording functionality
 class AudioProcessor(AudioProcessorBase):
@@ -68,7 +62,6 @@ class AudioProcessor(AudioProcessorBase):
         self.audio_path = "recorded_audio.wav"
 
     def recv(self, frame):
-        # Save the incoming audio frame as a WAV file
         with wave.open(self.audio_path, "wb") as wf:
             wf.setnchannels(1)
             wf.setsampwidth(frame.sample_width)
@@ -80,30 +73,39 @@ class AudioProcessor(AudioProcessorBase):
 if "recording" not in st.session_state:
     st.session_state.recording = False
 
+# Function to manage start and stop recording buttons
+def start_recording():
+    if not st.session_state.recording:
+        st.session_state.recording = True
+        st.write("Recording started...")
+        webrtc_streamer(key="audio", audio_processor_factory=AudioProcessor)
+        st.write("Recording in progress...")
+
+def stop_recording():
+    if st.session_state.recording:
+        st.session_state.recording = False
+        st.write("Recording stopped.")
+        # After stopping recording, transcribe the audio file
+        transcription = transcribe_audio("recorded_audio.wav")
+        st.write("Transcribed Text: ", transcription)
+
+        # Process the transcription into SOAP format
+        subjective, objective, assessment, plan = process_transcription_for_soap(transcription)
+
+        # Display SOAP Notes
+        st.subheader("SOAP Notes")
+        st.write("**Subjective**: ", ", ".join(subjective))
+        st.write("**Objective**: ", ", ".join(objective))
+        st.write("**Assessment**: ", ", ".join(assessment))
+        st.write("**Plan**: ", ", ".join(plan))
+
+        # Generate a personalized recovery plan
+        recovery_plan = generate_recovery_plan(subjective)
+        st.write("**Personalized Recovery Plan**: ", recovery_plan)
+
 # Handle "Start Recording" and "Stop Recording" buttons
-if st.button("Start Recording") and not st.session_state.recording:
-    st.session_state.recording = True
-    st.write("Recording started...")
-    webrtc_streamer(key="audio", audio_processor_factory=AudioProcessor)
-    st.write("Recording in progress...")
+if st.button("Start Recording"):
+    start_recording()
 
-if st.button("Stop Recording") and st.session_state.recording:
-    st.session_state.recording = False
-    st.write("Recording stopped.")
-    # After stopping recording, transcribe the audio file
-    transcription = transcribe_audio("recorded_audio.wav")
-    st.write("Transcribed Text: ", transcription)
-
-    # Process the transcription into SOAP format
-    subjective, objective, assessment, plan = process_transcription_for_soap(transcription)
-
-    # Display SOAP Notes
-    st.subheader("SOAP Notes")
-    st.write("**Subjective**: ", ", ".join(subjective))
-    st.write("**Objective**: ", ", ".join(objective))
-    st.write("**Assessment**: ", ", ".join(assessment))
-    st.write("**Plan**: ", ", ".join(plan))
-
-    # Generate a personalized recovery plan
-    recovery_plan = generate_recovery_plan(subjective)
-    st.write("**Personalized Recovery Plan**: ", recovery_plan)
+if st.button("Stop Recording"):
+    stop_recording()
