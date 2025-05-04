@@ -1,62 +1,37 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
+import time
+
+# Simulated data for demonstration
+# In a real system, this would be real-time data pulled from hospital systems
+beds_data = {
+    "ICU": {"occupied": 3, "total": 5},
+    "Surgery": {"occupied": 10, "total": 15},
+    "General": {"occupied": 50, "total": 100},
+    "ER": {"occupied": 8, "total": 10}
+}
+
+# Function to update the dashboard every few seconds
+def update_bed_data():
+    while True:
+        for key in beds_data:
+            beds_data[key]["occupied"] = np.random.randint(0, beds_data[key]["total"] + 1)
+        time.sleep(5)
 
 # Set up Streamlit page
-st.set_page_config(page_title="NeuroHealthFocus Stroke Triage", layout="centered")
-st.title("🧠 NeuroHealthFocus: Stroke Triage & Recovery")
+st.set_page_config(page_title="Hospital Bedflow Dashboard", layout="wide")
+st.title("Hospital Bedflow Management Dashboard")
 
-st.header("1. Enter Patient Information")
+# Display Bed Availability
+st.header("Real-Time Bed Availability")
+st.write("This dashboard provides real-time data on bed occupancy in various hospital units.")
 
-# Input fields for clinical data
-age = st.slider("Age", 18, 100, 65)
-severity = st.selectbox("Stroke Severity", ["Mild", "Moderate", "Severe"])
-time_since_onset = st.slider("Time Since Onset (in hours)", 0, 48, 2)
-symptoms = st.multiselect("Symptoms", ["Speech difficulty", "Paralysis", "Confusion", "Vision loss", "Headache"])
+# Display beds data
+bed_df = pd.DataFrame(beds_data).T
+bed_df["availability"] = bed_df["total"] - bed_df["occupied"]
+st.dataframe(bed_df)
 
-# SOAP note input fields
-st.header("2. Enter SOAP Notes")
-subjective = st.text_area("Subjective (Patient's Symptoms, Concerns)")
-objective = st.text_area("Objective (Physical Exam Findings, Results)")
-assessment = st.text_area("Assessment (Diagnosis or Evaluation)")
-plan = st.text_area("Plan (Treatment, Follow-up, Recommendations)")
+# Simulate updates every 5 seconds
+update_bed_data()
 
-
-# Function to simulate triage and recovery plan
-def simulate_triage(age, severity, time_since_onset, symptoms):
-    urgency_map = {
-        "Severe": "🚨 Urgent",
-        "Moderate": "⚠️ Semi-Urgent",
-        "Mild": "⏳ Routine"
-    }
-    if severity == "Severe" or time_since_onset < 3:
-        triage = urgency_map["Severe"]
-    elif severity == "Moderate" and time_since_onset < 12:
-        triage = urgency_map["Moderate"]
-    else:
-        triage = urgency_map["Mild"]
-
-    recovery_plan = {
-        "Week 1": "Physical therapy & monitoring",
-        "Week 2": "Speech therapy" if "Speech difficulty" in symptoms else "Mobility training",
-        "Week 3": "Cognitive exercises",
-        "Week 4": "Reassessment & goal setting"
-    }
-
-    return triage, recovery_plan
-
-
-# Simulate and show results
-if st.button("Simulate Triage & Recovery Plan"):
-    triage_result, plan = simulate_triage(age, severity, time_since_onset, symptoms)
-    st.subheader("3. Triage Priority")
-    st.success(f"Triage Level: {triage_result}")
-    st.subheader("4. Suggested Recovery Plan")
-    for week, activity in plan.items():
-        st.markdown(f"**{week}:** {activity}")
-
-    st.subheader("5. SOAP Documentation")
-    st.write("**Subjective:**", subjective)
-    st.write("**Objective:**", objective)
-    st.write("**Assessment:**", assessment)
-    st.write("**Plan:**", plan)
-
-    st.info("This is a simulated output. Not for clinical use.")
