@@ -1,111 +1,62 @@
 import streamlit as st
-import speech_recognition as sr
-import spacy
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
-import wave
 
-# Load spaCy model for NLP processing
-nlp = spacy.load('en_core_web_sm')  # Load English model for NLP tasks
+# Set up Streamlit page
+st.set_page_config(page_title="NeuroHealthFocus Stroke Triage", layout="centered")
+st.title("🧠 NeuroHealthFocus: Stroke Triage & Recovery")
 
-# Function to convert audio file (if needed) and transcribe to text
-def transcribe_audio(file_path):
-    recognizer = sr.Recognizer()
-    audio = None
-    with sr.AudioFile(file_path) as source:
-        recognizer.adjust_for_ambient_noise(source)  # Adjust for background noise
-        audio_data = recognizer.record(source)  # Capture the entire audio file
+st.header("1. Enter Patient Information")
 
-    try:
-        transcription = recognizer.recognize_google(audio_data)
-        return transcription
-    except sr.UnknownValueError:
-        return "Sorry, could not understand the audio"
-    except sr.RequestError:
-        return "Could not request results from Google Speech Recognition"
+# Input fields for clinical data
+age = st.slider("Age", 18, 100, 65)
+severity = st.selectbox("Stroke Severity", ["Mild", "Moderate", "Severe"])
+time_since_onset = st.slider("Time Since Onset (in hours)", 0, 48, 2)
+symptoms = st.multiselect("Symptoms", ["Speech difficulty", "Paralysis", "Confusion", "Vision loss", "Headache"])
 
-# Function to process the transcription and generate SOAP notes
-def process_transcription_for_soap(text):
-    doc = nlp(text)
+# SOAP note input fields
+st.header("2. Enter SOAP Notes")
+subjective = st.text_area("Subjective (Patient's Symptoms, Concerns)")
+objective = st.text_area("Objective (Physical Exam Findings, Results)")
+assessment = st.text_area("Assessment (Diagnosis or Evaluation)")
+plan = st.text_area("Plan (Treatment, Follow-up, Recommendations)")
 
-    subjective = []
-    objective = []
-    assessment = []
-    plan = []
 
-    # Example: Extracting certain keywords or entities related to stroke recovery
-    for ent in doc.ents:
-        if ent.label_ == 'SYMPTOM':  # This is just an example entity
-            subjective.append(ent.text)
-        elif ent.label_ == 'TREATMENT':
-            plan.append(ent.text)
+# Function to simulate triage and recovery plan
+def simulate_triage(age, severity, time_since_onset, symptoms):
+    urgency_map = {
+        "Severe": "🚨 Urgent",
+        "Moderate": "⚠️ Semi-Urgent",
+        "Mild": "⏳ Routine"
+    }
+    if severity == "Severe" or time_since_onset < 3:
+        triage = urgency_map["Severe"]
+    elif severity == "Moderate" and time_since_onset < 12:
+        triage = urgency_map["Moderate"]
+    else:
+        triage = urgency_map["Mild"]
 
-    return subjective, objective, assessment, plan
+    recovery_plan = {
+        "Week 1": "Physical therapy & monitoring",
+        "Week 2": "Speech therapy" if "Speech difficulty" in symptoms else "Mobility training",
+        "Week 3": "Cognitive exercises",
+        "Week 4": "Reassessment & goal setting"
+    }
 
-# Function to generate a personalized recovery plan based on SOAP notes
-def generate_recovery_plan(subjective):
-    plan = "Based on the symptoms reported, we suggest the following recovery plan: "
-    if "fatigue" in subjective:
-        plan += "Rest and gradual physical therapy, including light exercises."
-    if "speech difficulty" in subjective:
-        plan += "Speech therapy should be prioritized."
-    if "weakness" in subjective:
-        plan += "Physical therapy focusing on strength building."
-    return plan
+    return triage, recovery_plan
 
-# Streamlit app UI setup
-st.title("Stroke Recovery Assistant")
-st.write("Record a conversation between the patient and clinician to get the transcription and recovery plan.")
 
-# Add Audio Recording functionality
-class AudioProcessor(AudioProcessorBase):
-    def __init__(self):
-        self.audio_path = "recorded_audio.wav"
+# Simulate and show results
+if st.button("Simulate Triage & Recovery Plan"):
+    triage_result, plan = simulate_triage(age, severity, time_since_onset, symptoms)
+    st.subheader("3. Triage Priority")
+    st.success(f"Triage Level: {triage_result}")
+    st.subheader("4. Suggested Recovery Plan")
+    for week, activity in plan.items():
+        st.markdown(f"**{week}:** {activity}")
 
-    def recv(self, frame):
-        with wave.open(self.audio_path, "wb") as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(frame.sample_width)
-            wf.setframerate(frame.sample_rate)
-            wf.writeframes(frame.to_ndarray())
-        return frame
+    st.subheader("5. SOAP Documentation")
+    st.write("**Subjective:**", subjective)
+    st.write("**Objective:**", objective)
+    st.write("**Assessment:**", assessment)
+    st.write("**Plan:**", plan)
 
-# Streamlit session state to track recording status
-if "recording" not in st.session_state:
-    st.session_state.recording = False
-
-# Function to manage start and stop recording buttons
-def start_recording():
-    if not st.session_state.recording:
-        st.session_state.recording = True
-        st.write("Recording started...")
-        webrtc_streamer(key="audio", audio_processor_factory=AudioProcessor)
-        st.write("Recording in progress...")
-
-def stop_recording():
-    if st.session_state.recording:
-        st.session_state.recording = False
-        st.write("Recording stopped.")
-        # After stopping recording, transcribe the audio file
-        transcription = transcribe_audio("recorded_audio.wav")
-        st.write("Transcribed Text: ", transcription)
-
-        # Process the transcription into SOAP format
-        subjective, objective, assessment, plan = process_transcription_for_soap(transcription)
-
-        # Display SOAP Notes
-        st.subheader("SOAP Notes")
-        st.write("**Subjective**: ", ", ".join(subjective))
-        st.write("**Objective**: ", ", ".join(objective))
-        st.write("**Assessment**: ", ", ".join(assessment))
-        st.write("**Plan**: ", ", ".join(plan))
-
-        # Generate a personalized recovery plan
-        recovery_plan = generate_recovery_plan(subjective)
-        st.write("**Personalized Recovery Plan**: ", recovery_plan)
-
-# Handle "Start Recording" and "Stop Recording" buttons
-if st.button("Start Recording"):
-    start_recording()
-
-if st.button("Stop Recording"):
-    stop_recording()
+    st.info("This is a simulated output. Not for clinical use.")
