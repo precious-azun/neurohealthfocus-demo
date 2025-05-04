@@ -1,37 +1,73 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import time
+import speech_recognition as sr
+import spacy
 
-# Simulated data for demonstration
-# In a real system, this would be real-time data pulled from hospital systems
-beds_data = {
-    "ICU": {"occupied": 3, "total": 5},
-    "Surgery": {"occupied": 10, "total": 15},
-    "General": {"occupied": 50, "total": 100},
-    "ER": {"occupied": 8, "total": 10}
-}
+# Load spaCy model for NLP processing
+nlp = spacy.load('en_core_web_sm')
 
-# Function to update the dashboard every few seconds
-def update_bed_data():
-    while True:
-        for key in beds_data:
-            beds_data[key]["occupied"] = np.random.randint(0, beds_data[key]["total"] + 1)
-        time.sleep(5)
 
-# Set up Streamlit page
-st.set_page_config(page_title="Hospital Bedflow Dashboard", layout="wide")
-st.title("Hospital Bedflow Management Dashboard")
+# Function to transcribe audio
+def transcribe_audio():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.write("Listening for symptoms...")
+        recognizer.adjust_for_ambient_noise(source)  # Adjust for ambient noise
+        audio = recognizer.listen(source)  # Listen for input from the microphone
+        st.write("Transcribing audio...")
+        try:
+            transcription = recognizer.recognize_google(audio)  # Using Google Speech Recognition API
+            return transcription
+        except sr.UnknownValueError:
+            return "Sorry, I could not understand the audio."
+        except sr.RequestError:
+            return "Error with the request to the speech recognition service."
 
-# Display Bed Availability
-st.header("Real-Time Bed Availability")
-st.write("This dashboard provides real-time data on bed occupancy in various hospital units.")
 
-# Display beds data
-bed_df = pd.DataFrame(beds_data).T
-bed_df["availability"] = bed_df["total"] - bed_df["occupied"]
-st.dataframe(bed_df)
+# Function to generate SOAP notes
+def generate_soap_notes(text):
+    doc = nlp(text)
+    subjective = [ent.text for ent in doc.ents if ent.label_ == 'SYMPTOM']
+    objective = [ent.text for ent in doc.ents if ent.label_ == 'EXAM_RESULT']
+    assessment = [ent.text for ent in doc.ents if ent.label_ == 'DIAGNOSIS']
+    plan = [ent.text for ent in doc.ents if ent.label_ == 'TREATMENT']
 
-# Simulate updates every 5 seconds
-update_bed_data()
+    return subjective, objective, assessment, plan
 
+
+# Function to generate recovery plan based on symptoms
+def generate_recovery_plan(subjective):
+    recovery_plan = "Based on the symptoms reported, we suggest the following recovery plan: "
+    if "fatigue" in subjective:
+        recovery_plan += "Rest and gradual physical therapy, including light exercises. "
+    if "speech difficulty" in subjective:
+        recovery_plan += "Speech therapy should be prioritized. "
+    if "weakness" in subjective:
+        recovery_plan += "Physical therapy focusing on strength building. "
+    return recovery_plan
+
+
+# Streamlit app interface
+st.title("Stroke Recovery Assistant")
+st.write("Click 'Start Recording' to begin capturing audio symptoms.")
+
+# Start Recording Button
+if st.button('Start Recording'):
+    transcription = transcribe_audio()  # Start recording and transcribing
+    st.write("Transcribed Text: ", transcription)  # Show transcription
+
+    # Generate SOAP notes based on transcription
+    subjective, objective, assessment, plan = generate_soap_notes(transcription)
+
+    # Display SOAP notes
+    st.subheader("SOAP Notes")
+    st.write("**Subjective:**", ", ".join(subjective))
+    st.write("**Objective:**", ", ".join(objective))
+    st.write("**Assessment:**", ", ".join(assessment))
+    st.write("**Plan:**", ", ".join(plan))
+
+    # Generate and display recovery plan
+    recovery_plan = generate_recovery_plan(subjective)
+    st.subheader("Personalized Recovery Plan")
+    st.write(recovery_plan)
+
+    st.info("This is a simulated output. Not for clinical use.")
