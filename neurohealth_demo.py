@@ -10,11 +10,12 @@ nlp = spacy.load('en_core_web_sm')
 
 st.set_page_config(page_title="Stroke Recovery Assistant", layout="wide")
 
+
 # --- Function: Transcribe audio input ---
 def transcribe_audio():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
-        st.info("🎤 Listening... Please speak your symptoms clearly.")
+        st.info("🎤 Listening... Doctor, please describe the patient's condition.")
         recognizer.adjust_for_ambient_noise(source)
         audio = recognizer.listen(source)
         st.success("✅ Audio captured! Transcribing...")
@@ -26,6 +27,7 @@ def transcribe_audio():
         except sr.RequestError:
             return "Speech recognition service error."
 
+
 # --- Function: Generate SOAP notes from text ---
 def generate_soap_notes(text):
     doc = nlp(text)
@@ -35,30 +37,31 @@ def generate_soap_notes(text):
     plan = [ent.text for ent in doc.ents if ent.label_ == 'TREATMENT']
     return subjective, objective, assessment, plan
 
-# --- Function: Generate recovery plan ---
-def generate_recovery_plan(subjective):
-    plan = "Based on reported symptoms, consider the following plan: "
-    if "fatigue" in subjective:
-        plan += "🛌 Rest and light activity. "
-    if "weakness" in subjective:
-        plan += "🏋️‍♀️ Strength-based physical therapy. "
-    if "speech" in subjective:
-        plan += "🗣️ Consider speech therapy. "
-    if not subjective:
-        plan += "No specific recovery recommendations found."
-    return plan
 
-# --- Function: Simulated FHIR Patient Data ---
-def get_patient_data():
-    return {
-        "Name": "John Doe",
-        "Age": 68,
-        "Onset": "2024-12-05",
-        "Diagnosis": "Post-stroke aphasia",
-        "Last Updated": time.strftime("%Y-%m-%d %H:%M:%S")
-    }
+# --- Function: Generate recovery plan based on selected symptoms ---
+def generate_recovery_plan(symptoms_list):
+    response = "Suggested recovery plan:\n"
+    aphasia_keywords = ['speech', 'talk', 'language', 'unable to speak']
+    paralysis_keywords = ['paralysis', 'weakness', 'unable to move']
 
-# --- Function: Simulated Real-Time Bedflow Dashboard ---
+    if any(word in symptoms_list for word in aphasia_keywords):
+        response += "🧠 Possible post-stroke aphasia detected. Recommend speech therapy.\n"
+
+    if any(word in symptoms_list for word in paralysis_keywords):
+        response += "💪 Paralysis detected. Recommend physical therapy and mobility exercises.\n"
+
+    if "fatigue" in symptoms_list:
+        response += "🛌 Encourage rest and low activity.\n"
+    if "memory" in symptoms_list:
+        response += "🧠 Cognitive exercises may help."
+
+    if response.strip() == "Suggested recovery plan:":
+        response += "No specific therapy found."
+
+    return response
+
+
+# --- Function: Real-Time Bedflow Dashboard ---
 def bedflow_dashboard():
     st.subheader("🏥 Real-Time Bedflow Dashboard")
     st.caption("Auto-refreshes every few seconds. Alerts trigger when availability is low.")
@@ -70,41 +73,62 @@ def bedflow_dashboard():
     st.metric("Available Beds", available_beds)
 
     if available_beds < 5:
-        st.error("⚠️ Alert: Low bed availability! Please prepare for high ER congestion.")
+        st.error("⚠️ Alert: Low bed availability!")
     else:
-        st.success("✅ Bed availability is within safe range.")
+        st.success("✅ Bed availability is safe.")
 
-    # Auto-refresh every 10 seconds
     time.sleep(10)
     st.rerun()
 
-# --- UI Section ---
-st.title("🧠 Stroke Recovery Assistant (Voice + Dashboard)")
 
-# Patient Info
-st.subheader("🩺 Patient Summary")
-patient_info = get_patient_data()
-st.json(patient_info)
+# --- Main UI ---
+st.title("🧠 Stroke Recovery Assistant")
 
-# Start voice-based SOAP note generation
-if st.button("🎙️ Start Recording Symptoms"):
-    text = transcribe_audio()
-    st.write("**You said:**", text)
+# Step 1: Enter patient info
+with st.form("patient_form"):
+    st.subheader("👤 Patient Entry")
+    name = st.text_input("Patient Name", value="Subject 1")
+    age = st.number_input("Age", min_value=1, max_value=120, value=68)
+    stroke_date = st.date_input("Date of Stroke")
 
-    subj, obj, assess, plan = generate_soap_notes(text)
+    # Step 2: Select symptoms from dropdown
+    symptoms = [
+        "Paralysis", "Speech impairment", "Fatigue", "Memory loss", "Weakness", "Cognitive issues", "Other"
+    ]
+    selected_symptoms = st.multiselect("Select Symptoms", symptoms)
 
-    st.subheader("📋 SOAP Notes")
-    st.write("**Subjective:**", ", ".join(subj))
-    st.write("**Objective:**", ", ".join(obj))
-    st.write("**Assessment:**", ", ".join(assess))
-    st.write("**Plan:**", ", ".join(plan))
+    submitted = st.form_submit_button("🔍 Analyze Symptoms")
 
-    recovery_plan = generate_recovery_plan(subj)
-    st.subheader("📌 Recovery Recommendation")
-    st.success(recovery_plan)
+if submitted:
+    st.subheader("🩺 Patient Summary")
+    st.json({
+        "Name": name,
+        "Age": age,
+        "Date of Stroke": str(stroke_date),
+        "Symptoms": selected_symptoms,
+        "Last Updated": time.strftime("%Y-%m-%d %H:%M:%S")
+    })
 
-# Bedflow Section
-if st.button("📊 View Real-Time Bedflow Dashboard"):
+    recovery = generate_recovery_plan(selected_symptoms)
+    st.subheader("📌 Initial Therapy Recommendation")
+    st.success(recovery)
+
+    st.info("🎙️ Now the doctor can speak for deeper assessment...")
+
+    if st.button("🎧 Start Doctor's Voice Assessment"):
+        text = transcribe_audio()
+        st.write("**Doctor said:**", text)
+
+        subj, obj, assess, plan = generate_soap_notes(text)
+
+        st.subheader("📋 SOAP Notes")
+        st.write("**Subjective:**", ", ".join(subj) or "None")
+        st.write("**Objective:**", ", ".join(obj) or "None")
+        st.write("**Assessment:**", ", ".join(assess) or "None")
+        st.write("**Plan:**", ", ".join(plan) or "None")
+
+# Final section: Bedflow Dashboard
+if st.button("📊 View Real-Time Bedflow"):
     bedflow_dashboard()
 
-st.caption("Note: This is a demo. Not for clinical decision-making.")
+st.caption("Note: This is a prototype for demonstration purposes only.")
