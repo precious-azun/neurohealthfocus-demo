@@ -10,12 +10,11 @@ nlp = spacy.load('en_core_web_sm')
 
 st.set_page_config(page_title="Stroke Recovery Assistant", layout="wide")
 
-
 # --- Function: Transcribe audio input ---
 def transcribe_audio():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
-        st.info("🎤 Listening... Doctor, please describe the patient's condition.")
+        st.info("🎤 Listening... Please speak your symptoms clearly.")
         recognizer.adjust_for_ambient_noise(source)
         audio = recognizer.listen(source)
         st.success("✅ Audio captured! Transcribing...")
@@ -27,7 +26,6 @@ def transcribe_audio():
         except sr.RequestError:
             return "Speech recognition service error."
 
-
 # --- Function: Generate SOAP notes from text ---
 def generate_soap_notes(text):
     doc = nlp(text)
@@ -37,45 +35,30 @@ def generate_soap_notes(text):
     plan = [ent.text for ent in doc.ents if ent.label_ == 'TREATMENT']
     return subjective, objective, assessment, plan
 
+# --- Function: Generate recovery plan ---
+def generate_recovery_plan(subjective):
+    plan = "Based on reported symptoms, consider the following plan: "
+    if "fatigue" in subjective:
+        plan += "🛌 Rest and light activity. "
+    if "weakness" in subjective:
+        plan += "🏋️‍♀️ Strength-based physical therapy. "
+    if "speech" in subjective:
+        plan += "🗣️ Consider speech therapy. "
+    if not subjective:
+        plan += "No specific recovery recommendations found."
+    return plan
 
-# --- Function: Generate recovery plan based on selected symptoms ---
-def generate_recovery_plan(symptoms_list):
-    response = "Suggested recovery plan:\n"
+# --- Function: Simulated FHIR Patient Data ---
+def get_patient_data():
+    return {
+        "Name": "John Doe",
+        "Age": 68,
+        "Onset": "2024-12-05",
+        "Diagnosis": "Post-stroke aphasia",
+        "Last Updated": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
 
-    # Keywords for specific therapies
-    aphasia_keywords = ['speech', 'talk', 'language', 'unable to speak', 'speech impairment']
-    paralysis_keywords = ['paralysis', 'weakness', 'unable to move', 'muscle weakness']
-    fatigue_keywords = ['fatigue', 'tired', 'low energy']
-    cognitive_keywords = ['memory loss', 'difficulty concentrating', 'cognitive issues']
-
-    # Check for aphasia (speech impairment)
-    if any(word in symptoms_list for word in aphasia_keywords):
-        response += "🧠 Possible post-stroke aphasia detected. Recommend speech therapy.\n"
-
-    # Check for paralysis/weakness
-    if any(word in symptoms_list for word in paralysis_keywords):
-        response += "💪 Paralysis/weakness detected. Recommend physical therapy, mobility exercises, and strength training.\n"
-
-    # Check for fatigue
-    if any(word in symptoms_list for word in fatigue_keywords):
-        response += "🛌 Fatigue detected. Recommend rest, low activity, and gradual exercise.\n"
-
-    # Check for cognitive issues
-    if any(word in symptoms_list for word in cognitive_keywords):
-        response += "🧠 Cognitive issues detected. Recommend cognitive exercises and memory training.\n"
-
-    # Additional consideration for combining symptoms
-    if "speech" in symptoms_list and "paralysis" in symptoms_list:
-        response += "💪🧠 Combining paralysis and speech impairment. Consider multidisciplinary therapy, including speech and physical therapy.\n"
-
-    # If no recommendations found, ensure a general message
-    if response.strip() == "Suggested recovery plan:":
-        response += "No specific therapy found based on selected symptoms."
-
-    return response
-
-
-# --- Function: Real-Time Bedflow Dashboard ---
+# --- Function: Simulated Real-Time Bedflow Dashboard ---
 def bedflow_dashboard():
     st.subheader("🏥 Real-Time Bedflow Dashboard")
     st.caption("Auto-refreshes every few seconds. Alerts trigger when availability is low.")
@@ -87,62 +70,45 @@ def bedflow_dashboard():
     st.metric("Available Beds", available_beds)
 
     if available_beds < 5:
-        st.error("⚠️ Alert: Low bed availability!")
+        st.error("⚠️ Alert: Low bed availability! Please prepare for high ER congestion.")
     else:
-        st.success("✅ Bed availability is safe.")
+        st.success("✅ Bed availability is within safe range.")
 
+    # Auto-refresh every 10 seconds
     time.sleep(10)
     st.rerun()
 
+# --- UI Section ---
+st.title("🧠 Stroke Recovery Assistant (Voice + Dashboard)")
 
-# --- Main UI ---
-st.title("🧠 Stroke Recovery Assistant")
+# Patient Info
+st.subheader("🩺 Patient Summary")
+patient_info = get_patient_data()
+st.json(patient_info)
 
-# Step 1: Enter patient info
-with st.form("patient_form"):
-    st.subheader("👤 Patient Entry")
-    name = st.text_input("Patient Name", value="Subject 1")
-    age = st.number_input("Age", min_value=1, max_value=120, value=68)
-    stroke_date = st.date_input("Date of Stroke")
+# Initialize session state for storing transcription result
+if "transcription" not in st.session_state:
+    st.session_state.transcription = ""
 
-    # Step 2: Select symptoms from dropdown
-    symptoms = [
-        "Paralysis", "Speech impairment", "Fatigue", "Memory loss", "Weakness", "Cognitive issues", "Other"
-    ]
-    selected_symptoms = st.multiselect("Select Symptoms", symptoms)
+# Start voice-based SOAP note generation
+if st.button("🎙️ Start Recording Symptoms"):
+    st.session_state.transcription = transcribe_audio()  # Store transcription in session state
+    st.write("**You said:**", st.session_state.transcription)  # Display transcription
 
-    submitted = st.form_submit_button("🔍 Analyze Symptoms")
+    subj, obj, assess, plan = generate_soap_notes(st.session_state.transcription)
 
-if submitted:
-    st.subheader("🩺 Patient Summary")
-    st.json({
-        "Name": name,
-        "Age": age,
-        "Date of Stroke": str(stroke_date),
-        "Symptoms": selected_symptoms,
-        "Last Updated": time.strftime("%Y-%m-%d %H:%M:%S")
-    })
+    st.subheader("📋 SOAP Notes")
+    st.write("**Subjective:**", ", ".join(subj))
+    st.write("**Objective:**", ", ".join(obj))
+    st.write("**Assessment:**", ", ".join(assess))
+    st.write("**Plan:**", ", ".join(plan))
 
-    recovery = generate_recovery_plan(selected_symptoms)
-    st.subheader("📌 Initial Therapy Recommendation")
-    st.success(recovery)
+    recovery_plan = generate_recovery_plan(subj)
+    st.subheader("📌 Recovery Recommendation")
+    st.success(recovery_plan)
 
-    st.info("🎙️ Now the doctor can speak for deeper assessment...")
-
-    if st.button("🎧 Start Doctor's Voice Assessment"):
-        text = transcribe_audio()
-        st.write("**Doctor said:**", text)
-
-        subj, obj, assess, plan = generate_soap_notes(text)
-
-        st.subheader("📋 SOAP Notes")
-        st.write("**Subjective:**", ", ".join(subj) or "None")
-        st.write("**Objective:**", ", ".join(obj) or "None")
-        st.write("**Assessment:**", ", ".join(assess) or "None")
-        st.write("**Plan:**", ", ".join(plan) or "None")
-
-# Final section: Bedflow Dashboard
-if st.button("📊 View Real-Time Bedflow"):
+# Bedflow Section
+if st.button("📊 View Real-Time Bedflow Dashboard"):
     bedflow_dashboard()
 
-st.caption("Note: This is a prototype for demonstration purposes only.")
+st.caption("Note: This is a demo. Not for clinical decision-making.")
