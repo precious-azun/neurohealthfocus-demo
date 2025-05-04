@@ -64,7 +64,11 @@ def generate_recovery_plan(symptoms_list):
     if any(word in symptoms_list for word in cognitive_keywords):
         response += "🧠 Cognitive issues detected. Recommend cognitive exercises and memory training.\n"
 
-    # If no recommendations found, indicate generic suggestion
+    # Additional consideration for combining symptoms
+    if "speech" in symptoms_list and "paralysis" in symptoms_list:
+        response += "💪🧠 Combining paralysis and speech impairment. Consider multidisciplinary therapy, including speech and physical therapy.\n"
+
+    # If no recommendations found, ensure a general message
     if response.strip() == "Suggested recovery plan:":
         response += "No specific therapy found based on selected symptoms."
 
