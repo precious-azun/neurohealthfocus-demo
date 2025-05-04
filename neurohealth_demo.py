@@ -12,7 +12,7 @@ st.set_page_config(page_title="Stroke Recovery Assistant", layout="wide")
 # --- Function: Generate SOAP notes from patient data ---
 def generate_soap_notes(symptoms, name, age):
     # Subjective section
-    subjective = f"I met with {name}, a {age}-year-old patient who came here today feeling {', '.join(symptoms)}. He was unable to {', '.join(symptoms)}."
+    subjective = f"I met with {name}, a {age}-year-old patient who came here today feeling {', '.join(symptoms)}."
 
     # Objective section (vital signs can be added here if needed, for now it's just a placeholder)
     objective = "Vital signs were not recorded in this demo, but typically, we would include blood pressure, heart rate, and other relevant measures."
