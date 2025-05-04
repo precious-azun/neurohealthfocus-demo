@@ -41,22 +41,32 @@ def generate_soap_notes(text):
 # --- Function: Generate recovery plan based on selected symptoms ---
 def generate_recovery_plan(symptoms_list):
     response = "Suggested recovery plan:\n"
-    aphasia_keywords = ['speech', 'talk', 'language', 'unable to speak']
-    paralysis_keywords = ['paralysis', 'weakness', 'unable to move']
 
+    # Keywords for specific therapies
+    aphasia_keywords = ['speech', 'talk', 'language', 'unable to speak', 'speech impairment']
+    paralysis_keywords = ['paralysis', 'weakness', 'unable to move', 'muscle weakness']
+    fatigue_keywords = ['fatigue', 'tired', 'low energy']
+    cognitive_keywords = ['memory loss', 'difficulty concentrating', 'cognitive issues']
+
+    # Check for aphasia (speech impairment)
     if any(word in symptoms_list for word in aphasia_keywords):
         response += "🧠 Possible post-stroke aphasia detected. Recommend speech therapy.\n"
 
+    # Check for paralysis/weakness
     if any(word in symptoms_list for word in paralysis_keywords):
-        response += "💪 Paralysis detected. Recommend physical therapy and mobility exercises.\n"
+        response += "💪 Paralysis/weakness detected. Recommend physical therapy, mobility exercises, and strength training.\n"
 
-    if "fatigue" in symptoms_list:
-        response += "🛌 Encourage rest and low activity.\n"
-    if "memory" in symptoms_list:
-        response += "🧠 Cognitive exercises may help."
+    # Check for fatigue
+    if any(word in symptoms_list for word in fatigue_keywords):
+        response += "🛌 Fatigue detected. Recommend rest, low activity, and gradual exercise.\n"
 
+    # Check for cognitive issues
+    if any(word in symptoms_list for word in cognitive_keywords):
+        response += "🧠 Cognitive issues detected. Recommend cognitive exercises and memory training.\n"
+
+    # If no recommendations found, indicate generic suggestion
     if response.strip() == "Suggested recovery plan:":
-        response += "No specific therapy found."
+        response += "No specific therapy found based on selected symptoms."
 
     return response
 
