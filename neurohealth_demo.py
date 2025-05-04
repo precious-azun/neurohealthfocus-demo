@@ -88,13 +88,17 @@ st.markdown("---")
 st.header("📈 3. Real-Time FHIR Dashboard")
 
 # Auto-refresh every 10 seconds
-count = st.experimental_get_query_params().get("refresh", [0])[0]
-count = int(count)
-st.experimental_set_query_params(refresh=str(count + 1))
+query_params = st.query_params
+refresh_count = int(query_params.get("refresh", 0))
+
+# Update the query param for next run
+st.query_params["refresh"] = str(refresh_count + 1)
+
+# Sleep and rerun after 10 seconds
 time.sleep(10)
 st.rerun()
 
-# Simulated patient data (would be pulled from FHIR/EMR API in production)
+# Simulated FHIR-like patient data
 def get_fhir_patient_data():
     triage_levels = ["Urgent", "Semi-Urgent", "Routine"]
     return pd.DataFrame({
