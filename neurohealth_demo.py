@@ -3,32 +3,21 @@ import speech_recognition as sr
 import spacy
 from pydub import AudioSegment
 from io import BytesIO
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, ClientSettings
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
 import wave
 
 # Load spaCy model for NLP processing
 nlp = spacy.load('en_core_web_sm')  # Load English model for NLP tasks
 
-
 # Function to convert audio file (if needed) and transcribe to text
-def transcribe_audio(file):
+def transcribe_audio(file_path):
     recognizer = sr.Recognizer()
     audio = None
-    # Convert the uploaded audio to WAV format using pydub
-    if file.type == "audio/mp3":
-        audio = AudioSegment.from_mp3(file)
-        audio = audio.set_channels(1).set_frame_rate(16000)  # Convert to mono and set a suitable frame rate
-        with BytesIO() as wav_file:
-            audio.export(wav_file, format="wav")
-            wav_file.seek(0)
-            audio_file = sr.AudioFile(wav_file)
-    elif file.type == "audio/wav":
-        audio_file = sr.AudioFile(file)
-
-    # Recognize speech using Google's API
-    with audio_file as source:
+    # Open the audio file to recognize speech
+    with sr.AudioFile(file_path) as source:
         recognizer.adjust_for_ambient_noise(source)  # Adjust for background noise
         audio_data = recognizer.record(source)  # Capture the entire audio file
+
     try:
         # Use Google API for transcribing the speech to text
         transcription = recognizer.recognize_google(audio_data)
@@ -37,7 +26,6 @@ def transcribe_audio(file):
         return "Sorry, could not understand the audio"
     except sr.RequestError:
         return "Could not request results from Google Speech Recognition"
-
 
 # Function to process the transcription and generate SOAP notes
 def process_transcription_for_soap(text):
@@ -58,7 +46,6 @@ def process_transcription_for_soap(text):
     # You can expand this with more complex rules or machine learning models
     return subjective, objective, assessment, plan
 
-
 # Function to generate a personalized recovery plan based on SOAP notes
 def generate_recovery_plan(subjective):
     plan = "Based on the symptoms reported, we suggest the following recovery plan: "
@@ -70,18 +57,19 @@ def generate_recovery_plan(subjective):
         plan += "Physical therapy focusing on strength building."
     return plan
 
-
 # Streamlit app UI setup
 st.title("Stroke Recovery Assistant")
-
 st.write(
     "Record a conversation between the patient and clinician to get the transcription and recovery plan.")
 
 # Add Audio Recording functionality
 class AudioProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.audio_path = "recorded_audio.wav"
+
     def recv(self, frame):
         # Save the incoming audio frame as a WAV file
-        with wave.open("recorded_audio.wav", "wb") as wf:
+        with wave.open(self.audio_path, "wb") as wf:
             wf.setnchannels(1)
             wf.setsampwidth(frame.sample_width)
             wf.setframerate(frame.sample_rate)
