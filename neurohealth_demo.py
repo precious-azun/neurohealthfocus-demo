@@ -3,6 +3,8 @@ import speech_recognition as sr
 import spacy
 from pydub import AudioSegment
 from io import BytesIO
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, ClientSettings
+import wave
 
 # Load spaCy model for NLP processing
 nlp = spacy.load('en_core_web_sm')  # Load English model for NLP tasks
@@ -73,14 +75,29 @@ def generate_recovery_plan(subjective):
 st.title("Stroke Recovery Assistant")
 
 st.write(
-    "Upload an audio file of a conversation between the patient and clinician to get the transcription and recovery plan.")
+    "Record a conversation between the patient and clinician to get the transcription and recovery plan.")
 
-# File uploader for audio
-uploaded_audio = st.file_uploader("Upload a patient conversation (Audio)", type=["wav", "mp3"])
+# Add Audio Recording functionality
+class AudioProcessor(AudioProcessorBase):
+    def recv(self, frame):
+        # Save the incoming audio frame as a WAV file
+        with wave.open("recorded_audio.wav", "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(frame.sample_width)
+            wf.setframerate(frame.sample_rate)
+            wf.writeframes(frame.to_ndarray())
+        return frame
 
-if uploaded_audio:
-    st.audio(uploaded_audio, format='audio/wav')  # Play the uploaded audio
-    transcription = transcribe_audio(uploaded_audio)  # Transcribe the audio
+# Start the audio recording when the button is clicked
+if st.button("Start Recording"):
+    st.write("Recording started...")
+    webrtc_streamer(key="audio", audio_processor_factory=AudioProcessor)
+    st.write("Recording in progress...")
+
+# After recording, transcribe the audio and generate SOAP notes
+if st.button("Stop Recording") or st.button("Transcribe"):
+    # After stopping recording, transcribe the audio file
+    transcription = transcribe_audio("recorded_audio.wav")
     st.write("Transcribed Text: ", transcription)
 
     # Process the transcription into SOAP format
@@ -96,4 +113,3 @@ if uploaded_audio:
     # Generate a personalized recovery plan
     recovery_plan = generate_recovery_plan(subjective)
     st.write("**Personalized Recovery Plan**: ", recovery_plan)
-
