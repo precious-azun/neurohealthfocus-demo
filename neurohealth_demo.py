@@ -2,132 +2,109 @@ import streamlit as st
 import speech_recognition as sr
 import spacy
 import pandas as pd
-import plotly.express as px
 import random
 import time
 
-# Load NLP model
-nlp = spacy.load("en_core_web_sm")
+# Load spaCy model
+nlp = spacy.load('en_core_web_sm')
 
-# Streamlit setup
-st.set_page_config(page_title="NeuroHealthFocus Assistant", layout="centered")
-st.title("🧠 NeuroHealthFocus: Stroke Assistant + ER Dashboard")
+st.set_page_config(page_title="Stroke Recovery Assistant", layout="wide")
 
-# --- AUDIO TRANSCRIPTION ---
-st.header("🎙️ 1. Voice Symptom Capture")
-
+# --- Function: Transcribe audio input ---
 def transcribe_audio():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
-        st.write("Listening... Please describe symptoms clearly.")
+        st.info("🎤 Listening... Please speak your symptoms clearly.")
         recognizer.adjust_for_ambient_noise(source)
         audio = recognizer.listen(source)
-        st.write("Transcribing...")
+        st.success("✅ Audio captured! Transcribing...")
         try:
-            return recognizer.recognize_google(audio)
+            transcription = recognizer.recognize_google(audio)
+            return transcription
         except sr.UnknownValueError:
-            return "Sorry, could not understand audio."
+            return "Sorry, I could not understand the audio."
         except sr.RequestError:
-            return "Speech recognition error."
+            return "Speech recognition service error."
 
+# --- Function: Generate SOAP notes from text ---
 def generate_soap_notes(text):
     doc = nlp(text)
-    subjective = [ent.text for ent in doc.ents if ent.label_ == 'SYMPTOM']
+    subjective = [ent.text for ent in doc.ents if ent.label_ in ['SYMPTOM', 'DISEASE']]
     objective = [ent.text for ent in doc.ents if ent.label_ == 'EXAM_RESULT']
     assessment = [ent.text for ent in doc.ents if ent.label_ == 'DIAGNOSIS']
     plan = [ent.text for ent in doc.ents if ent.label_ == 'TREATMENT']
     return subjective, objective, assessment, plan
 
+# --- Function: Generate recovery plan ---
 def generate_recovery_plan(subjective):
-    plan = ""
+    plan = "Based on reported symptoms, consider the following plan: "
     if "fatigue" in subjective:
-        plan += "- Rest and gradual physical therapy.\n"
-    if "speech difficulty" in subjective:
-        plan += "- Initiate speech therapy.\n"
+        plan += "🛌 Rest and light activity. "
     if "weakness" in subjective:
-        plan += "- Strength-based physical therapy.\n"
-    return plan if plan else "Standard recovery and monitoring."
+        plan += "🏋️‍♀️ Strength-based physical therapy. "
+    if "speech" in subjective:
+        plan += "🗣️ Consider speech therapy. "
+    if not subjective:
+        plan += "No specific recovery recommendations found."
+    return plan
 
-if st.button("🎤 Start Recording"):
-    transcription = transcribe_audio()
-    st.write("**Transcribed:**", transcription)
+# --- Function: Simulated FHIR Patient Data ---
+def get_patient_data():
+    return {
+        "Name": "John Doe",
+        "Age": 68,
+        "Onset": "2024-12-05",
+        "Diagnosis": "Post-stroke aphasia",
+        "Last Updated": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
 
-    subjective, objective, assessment, plan_items = generate_soap_notes(transcription)
+# --- Function: Simulated Real-Time Bedflow Dashboard ---
+def bedflow_dashboard():
+    st.subheader("🏥 Real-Time Bedflow Dashboard")
+    st.caption("Auto-refreshes every few seconds. Alerts trigger when availability is low.")
 
-    st.subheader("📄 SOAP Notes")
-    st.write("**Subjective:**", ", ".join(subjective))
-    st.write("**Objective:**", ", ".join(objective))
-    st.write("**Assessment:**", ", ".join(assessment))
-    st.write("**Plan:**", ", ".join(plan_items))
+    num_beds = 25
+    available_beds = random.randint(0, num_beds)
 
-    st.subheader("🛠️ Recovery Plan")
-    st.code(generate_recovery_plan(subjective))
+    st.metric("Total Beds", num_beds)
+    st.metric("Available Beds", available_beds)
 
-# --- TRIAGE FORM ---
-st.markdown("---")
-st.header("🧾 2. Stroke Triage Form")
+    if available_beds < 5:
+        st.error("⚠️ Alert: Low bed availability! Please prepare for high ER congestion.")
+    else:
+        st.success("✅ Bed availability is within safe range.")
 
-age = st.slider("Age", 18, 100, 65)
-severity = st.selectbox("Stroke Severity", ["Mild", "Moderate", "Severe"])
-onset = st.slider("Onset Time (hours ago)", 0, 48, 4)
-symptoms = st.multiselect("Select Symptoms", ["Speech difficulty", "Paralysis", "Confusion", "Vision loss", "Headache"])
+    # Auto-refresh every 10 seconds
+    time.sleep(10)
+    st.rerun()
 
-def get_triage(age, severity, onset, symptoms):
-    if severity == "Severe" or onset <= 3:
-        return "🚨 Urgent"
-    elif severity == "Moderate" or onset <= 12:
-        return "⚠️ Semi-Urgent"
-    return "⏳ Routine"
+# --- UI Section ---
+st.title("🧠 Stroke Recovery Assistant (Voice + Dashboard)")
 
-if st.button("📊 Submit Triage"):
-    result = get_triage(age, severity, onset, symptoms)
-    st.success(f"Triage Level: {result}")
+# Patient Info
+st.subheader("🩺 Patient Summary")
+patient_info = get_patient_data()
+st.json(patient_info)
 
-# --- FHIR-SIMULATED PATIENT DATA ---
-st.markdown("---")
-st.header("📈 3. Real-Time FHIR Dashboard")
+# Start voice-based SOAP note generation
+if st.button("🎙️ Start Recording Symptoms"):
+    text = transcribe_audio()
+    st.write("**You said:**", text)
 
-# Auto-refresh every 10 seconds
-query_params = st.query_params
-refresh_count = int(query_params.get("refresh", 0))
+    subj, obj, assess, plan = generate_soap_notes(text)
 
-# Update the query param for next run
-st.query_params["refresh"] = str(refresh_count + 1)
+    st.subheader("📋 SOAP Notes")
+    st.write("**Subjective:**", ", ".join(subj))
+    st.write("**Objective:**", ", ".join(obj))
+    st.write("**Assessment:**", ", ".join(assess))
+    st.write("**Plan:**", ", ".join(plan))
 
-# Sleep and rerun after 10 seconds
-time.sleep(10)
-st.rerun()
+    recovery_plan = generate_recovery_plan(subj)
+    st.subheader("📌 Recovery Recommendation")
+    st.success(recovery_plan)
 
-# Simulated FHIR-like patient data
-def get_fhir_patient_data():
-    triage_levels = ["Urgent", "Semi-Urgent", "Routine"]
-    return pd.DataFrame({
-        "Patient ID": [f"PT-{i:03}" for i in range(1, 21)],
-        "Triage Level": random.choices(triage_levels, weights=[4, 6, 10], k=20),
-        "Bed Assigned": random.choices(["Yes", "No"], weights=[15, 5], k=20)
-    })
+# Bedflow Section
+if st.button("📊 View Real-Time Bedflow Dashboard"):
+    bedflow_dashboard()
 
-df = get_fhir_patient_data()
-
-# Dashboard Charts
-st.subheader("🌀 Triage Distribution")
-fig = px.pie(df, names="Triage Level", title="Triage Case Load")
-st.plotly_chart(fig)
-
-# Bed Availability
-total_beds = 25
-occupied_beds = df["Bed Assigned"].value_counts().get("Yes", 0)
-free_beds = total_beds - occupied_beds
-
-st.subheader("🛏️ Bed Availability")
-st.progress(free_beds / total_beds)
-st.write(f"🟢 {free_beds} out of {total_beds} beds available")
-
-if free_beds < 5:
-    st.error("⚠️ ALERT: Low bed availability. Notify ER staff immediately!")
-
-st.subheader("📋 Current Patients (FHIR-Fetched)")
-st.dataframe(df)
-
-st.markdown("---")
-st.info("Prototype | Simulated FHIR API | Not for Clinical Use")
+st.caption("Note: This is a demo. Not for clinical decision-making.")
