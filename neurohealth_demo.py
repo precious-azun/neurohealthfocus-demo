@@ -76,14 +76,20 @@ class AudioProcessor(AudioProcessorBase):
             wf.writeframes(frame.to_ndarray())
         return frame
 
-# Start the audio recording when the button is clicked
-if st.button("Start Recording"):
+# Streamlit session state to track recording status
+if "recording" not in st.session_state:
+    st.session_state.recording = False
+
+# Handle "Start Recording" and "Stop Recording" buttons
+if st.button("Start Recording") and not st.session_state.recording:
+    st.session_state.recording = True
     st.write("Recording started...")
     webrtc_streamer(key="audio", audio_processor_factory=AudioProcessor)
     st.write("Recording in progress...")
 
-# After recording, transcribe the audio and generate SOAP notes
-if st.button("Stop Recording") or st.button("Transcribe"):
+if st.button("Stop Recording") and st.session_state.recording:
+    st.session_state.recording = False
+    st.write("Recording stopped.")
     # After stopping recording, transcribe the audio file
     transcription = transcribe_audio("recorded_audio.wav")
     st.write("Transcribed Text: ", transcription)
